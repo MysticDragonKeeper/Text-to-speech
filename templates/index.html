@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="A Python-powered text-to-speech web application."
+    >
+
+    <title>Text-to-Speech</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+</head>
+
+
+<body>
+
+    <main class="app-container">
+
+        <!-- HERO -->
+
+        <header class="hero">
+
+            <span class="badge">
+                PYTHON WEB APPLICATION
+            </span>
+
+            <h1>Text-to-Speech</h1>
+
+            <p class="subtitle">
+                Turn written text into spoken audio with a simple,
+                accessible Python-powered tool.
+            </p>
+
+        </header>
+
+
+        <!-- TEXT TO SPEECH APPLICATION -->
+
+        <section class="app-card">
+
+        <form id="speech-form">
+
+                <div class="label-row">
+
+                    <label for="text-input">
+                        Enter your text
+                    </label>
+
+                    <span id="text-stats">
+                        0 words • 0 / 20,000 characters
+                    </span>
+
+                </div>
+
+
+                <textarea
+                    id="text-input"
+                    name="text"
+                    maxlength="20000"
+                    placeholder="Type or paste something you'd like to hear..."
+                    required
+                ></textarea>
+
+
+                <div class="button-row">
+
+                <button
+                    type="submit"
+                    class="generate-button"
+                    id="generate-button"
+                >
+                    <span>▶</span>
+                    Generate Speech
+                </button>
+
+
+                    <button
+                        type="button"
+                        class="clear-button"
+                        id="clear-button"
+                    >
+                        Clear
+                    </button>
+
+                </div>
+
+            </form>
+
+
+                <!-- GENERATED AUDIO -->
+
+                <div class="audio-section">
+
+                    <span class="section-label">
+                        GENERATED AUDIO
+                    </span>
+
+                    <h2>Listen</h2>
+
+                    <p>
+                        Your generated speech will appear here.
+                    </p>
+
+                    <audio
+                        id="audio-player"
+                        controls
+                        preload="none"
+                    >
+                        Your browser does not support audio playback.
+                    </audio>
+
+                    <!-- Download button -->
+                    <a
+                        id="download-btn"
+                        class="download-btn"
+                        download="speech.mp3"
+                        style="display: none;"
+                    >
+                        ⬇ Download MP3
+                    </a>
+
+                    <p id="status-message" aria-live="polite"></p>
+
+                </div>
+
+                </section>
+
+        <!-- PROJECT INFORMATION -->
+
+        <section class="project-info">
+
+            <div>
+
+                <span class="section-label">
+                    ABOUT
+                </span>
+
+                <h2>Built with Python</h2>
+
+                <p>
+                    This application uses Flask and text-to-speech
+                    technology to transform written text into playable
+                    audio directly from the browser.
+                </p>
+
+            </div>
+
+
+            <div class="tech-stack">
+
+                <span>Python</span>
+                <span>Flask</span>
+                <span>gTTS</span>
+                <span>HTML</span>
+                <span>CSS</span>
+                <span>JavaScript</span>
+
+            </div>
+
+        </section>
+
+
+        <footer>
+
+            <p>
+                Built by Samantha Gilham • Portfolio Project
+            </p>
+
+        </footer>
+
+    </main>
+
+
+    <!-- JAVASCRIPT -->
+
+    <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const textInput =
+        document.getElementById("text-input");
+
+    const textStats =
+        document.getElementById("text-stats");
+
+    const clearButton =
+        document.getElementById("clear-button");
+
+    const speechForm =
+        document.getElementById("speech-form");
+
+    const generateButton =
+        document.getElementById("generate-button");
+
+    const audioPlayer =
+        document.getElementById("audio-player");
+
+    const downloadButton =
+        document.getElementById("download-btn");
+
+    const statusMessage =
+        document.getElementById("status-message");
+
+    const maxCharacters = 20000;
+
+
+    // -------------------------
+    // WORD / CHARACTER COUNTER
+    // -------------------------
+
+    function updateTextStats() {
+
+        const text = textInput.value;
+
+        const characterCount =
+            text.length;
+
+        const words = text
+            .trim()
+            .split(/\s+/)
+            .filter(word => word.length > 0);
+
+        const wordCount =
+            words.length;
+
+        const estimatedSeconds =
+            Math.max(
+                2,
+                Math.ceil(wordCount / 100) * 2
+            );
+
+        textStats.textContent =
+            `${wordCount.toLocaleString()} words • ` +
+            `${characterCount.toLocaleString()} / ` +
+            `${maxCharacters.toLocaleString()} characters • ` +
+            `~${estimatedSeconds}s generation`;
+    }
+
+
+    textInput.addEventListener(
+        "input",
+        updateTextStats
+    );
+
+
+    // -------------------------
+    // CLEAR BUTTON
+    // -------------------------
+
+    clearButton.addEventListener(
+        "click",
+        function () {
+
+            textInput.value = "";
+
+            updateTextStats();
+
+            // Remove old audio URL
+            if (audioPlayer.dataset.audioUrl) {
+
+                URL.revokeObjectURL(
+                    audioPlayer.dataset.audioUrl
+                );
+
+                delete audioPlayer.dataset.audioUrl;
+            }
+
+            // Reset audio player
+            audioPlayer.pause();
+            audioPlayer.removeAttribute("src");
+            audioPlayer.load();
+
+            // Hide download button
+            downloadButton.removeAttribute("href");
+
+            downloadButton.style.setProperty(
+                "display",
+                "none",
+                "important"
+            );
+
+            // Clear status
+            statusMessage.textContent = "";
+
+            textInput.focus();
+        }
+    );
+
+
+    // -------------------------
+    // GENERATE SPEECH
+    // -------------------------
+
+    speechForm.addEventListener(
+        "submit",
+        async function (event) {
+
+            event.preventDefault();
+
+            const startTime =
+                performance.now();
+
+            const text =
+                textInput.value.trim();
+
+
+            if (!text) {
+
+                statusMessage.textContent =
+                    "Please enter some text first.";
+
+                textInput.focus();
+
+                return;
+            }
+
+
+            generateButton.disabled = true;
+
+            generateButton.textContent =
+                "Generating...";
+
+
+            statusMessage.innerHTML =
+                `<span class="loading-spinner"></span>
+                Generating your audio...`;
+
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "text",
+                text
+            );
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/speak",
+                        {
+                            method: "POST",
+                            body: formData
+                        }
+                    );
+
+
+                if (!response.ok) {
+
+                    const errorMessage =
+                        await response.text();
+
+                    throw new Error(
+                        errorMessage
+                    );
+                }
+
+
+                const audioBlob =
+                    await response.blob();
+
+                const audioURL =
+                    URL.createObjectURL(
+                        audioBlob
+                    );
+
+
+                // Remove previous audio URL
+                if (audioPlayer.dataset.audioUrl) {
+
+                    URL.revokeObjectURL(
+                        audioPlayer.dataset.audioUrl
+                    );
+                }
+
+
+                // Load new audio
+                audioPlayer.src =
+                    audioURL;
+
+                audioPlayer.dataset.audioUrl =
+                    audioURL;
+
+
+                // Enable download button
+                downloadButton.href =
+                    audioURL;
+
+                downloadButton.style.setProperty(
+                    "display",
+                    "inline-flex",
+                    "important"
+                );
+
+
+                // Calculate actual generation time
+                const endTime =
+                    performance.now();
+
+                const generationTime =
+                    (
+                        (endTime - startTime) / 1000
+                    ).toFixed(1);
+
+
+                statusMessage.textContent =
+                    `✓ Audio ready in ${generationTime} seconds.`;
+
+
+                // Attempt automatic playback
+                audioPlayer.play()
+                    .catch(() => {
+
+                        // Browser may block autoplay.
+
+                    });
+
+            }
+
+            catch (error) {
+
+                console.error(error);
+
+                statusMessage.textContent =
+                    "Something went wrong while generating the audio.";
+
+            }
+
+            finally {
+
+                generateButton.disabled =
+                    false;
+
+                generateButton.innerHTML =
+                    "<span>▶</span> Generate Speech";
+            }
+        }
+    );
+
+
+    // Initial counter
+    updateTextStats();
+
+});
+</script>
+</body>
+
+</html>
